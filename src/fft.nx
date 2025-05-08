@@ -1,0 +1,133 @@
+application fft;
+
+import std.utils.REG;
+import std.selector.MUX;
+
+interface complex(width) : [real, imag] {
+  wire real, imag of bit(width);
+}
+
+interface basig : [clk, rstn, en] {
+  wire clk of clock();
+  wire rstn, en of bit(1);
+}
+
+component reg : [clk, rstn, input] -> [output] {
+  bundle base of basig;
+  auto output <> REG(isPosEdge = true, isHighRst = false) <> {
+    clk = clk,
+    rst = rstn,
+    rst_in = CAST <> 0,
+    input = input
+  };
+}
+
+component reg_with_en : [base, input] -> [output] {
+  bundle base of basig;
+  auto output <> reg <> [base.clk, base.rstn, MUX(1) <> [base.en, output, input]];
+}
+
+component butterfly : [base, xp, xq, factor] -> [valid, yp, yq] {
+  wire valid of bit(1);
+  bundle base of basig;
+  bundle factor of complex(16);
+  bundle xp, xq, yp, yq of complex(24);
+
+  wire en_r of bit(5);
+  en_r <> reg <> [base.clk, base.rstn, CONCAT <> [en_r[3:0], base.en]];
+  let base_r(i) = basig <> [base.clk, base.rstn, en_r[i]];
+  let reg_en(b) = reg_with_en <> [b#, TO];
+
+  let EMUL = MUL <> [CAST(40) <> TO, CAST(40) <> TO];
+  bundle xq_wnr0, xq_wnr1, xp_d of complex(40);
+  xq_wnr0 <> complex(40) <> [
+    reg_en(base) <> EMUL <> [xq.real, factor.real],
+    reg_en(base) <> EMUL <> [xq.real, factor.imag]
+  ];
+  xq_wnr1 <> complex(40) <> [
+    reg_en(base) <> EMUL <> [xq.imag, factor.imag],
+    reg_en(base) <> EMUL <> [xq.imag, factor.real]
+  ];
+  xp_d <> complex(40) <> [
+    reg_en(base) <> CONCAT <> [CAST(27) <> xp.real, 13'b0],
+    reg_en(base) <> CONCAT <> [CAST(27) <> xp.imag, 13'b0]
+  ];
+
+  bundle xp_d1, xq_wnr of complex(40);
+  xp_d1 <> complex(40) <> [
+    reg_en(base_r(0)) <> xp_d.real,
+    reg_en(base_r(0)) <> xp_d.imag
+  ];
+  
+  xq_wnr <> complex(40) <> [
+    reg_en(base_r(0)) <> SUB <> [xq_wnr0.real, xq_wnr1.real],
+    reg_en(base_r(0)) <> ADD <> [xq_wnr0.imag, xq_wnr1.imag]
+  ];
+
+  bundle yp_r, yq_r of complex(40);
+  yp_r <> complex(40) <> [
+    reg_en(base_r(1)) <> ADD <> [xp_d1.real, xq_wnr.real],
+    reg_en(base_r(1)) <> ADD <> [xp_d1.imag, xq_wnr.imag]
+  ];
+  yq_r <> complex(40) <> [
+    reg_en(base_r(1)) <> SUB <> [xp_d1.real, xq_wnr.real],
+    reg_en(base_r(1)) <> SUB <> [xp_d1.imag, xq_wnr.imag]
+  ];
+
+  yp <> complex(24) <> [
+    CONCAT <> [yp_r.real[39], yp_r.real[35:13]],
+    CONCAT <> [yp_r.imag[39], yp_r.imag[35:13]]
+  ];
+  yq <> complex(24) <> [
+    CONCAT <> [yq_r.real[39], yq_r.real[35:13]],
+    CONCAT <> [yq_r.imag[39], yq_r.imag[35:13]]
+  ];
+  valid <> en_r[2];
+}
+
+component fft8 : [base, x] -> [valid, y] {
+  bundle base of basig;
+  wire valid of bit(1);
+  bundle x[8], y[8] of complex(24);
+
+  bundle xm[4][8] of complex(24);
+  wire en_connect of bit(16);
+  for (i in [0..4]) {
+    en_connect[i] <> base.en;
+  }
+
+  bundle factor[4] of complex(16);
+  factor[0] <> complex(16) <> [16'h2000, 16'h0000];
+  factor[1] <> complex(16) <> [16'h16a0, 16'he95f];
+  factor[2] <> complex(16) <> [16'h0000, 16'he000]; 
+  factor[3] <> complex(16) <> [16'he95f, 16'he95f];
+
+  let ord = [0, 4, 2, 6, 1, 5, 3, 7];
+  for (i in [0..8]) {
+    xm[0][i] <> x[ord[i]];
+  }
+
+  let pindex_list = [ [0, 2, 4, 6], [0, 1, 4, 5], [0, 1, 2, 3] ];
+  let findex_list = [ [0, 0, 0, 0], [0, 2, 0, 2], [0, 1, 2, 3] ];
+  for (m in [0..3]) {
+    for (k in [0..4]) {
+      let pindex = pindex_list[m][k];
+      let findex = findex_list[m][k];
+      let qindex = (1 << m) + pindex;
+      { valid = en_connect[(m + 1) * 4 + k], 
+        yp = xm[m + 1][pindex],
+        yq = xm[m + 1][qindex]
+      } <> butterfly <> {
+        base = basig <> [base.clk, base.rstn, en_connect[m * 4 + k]],
+        xp = xm[m][pindex],
+        xq = xm[m][qindex],
+        factor = factor[findex]
+      };
+    }
+  }
+
+  for (i in [0..8]) {
+    y[i] <> xm[3][i];
+  }
+  valid <> en_connect[12];
+}
