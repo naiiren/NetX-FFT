@@ -32,15 +32,9 @@ int main() {
 
     unsigned step_real[8] = {1, 1, 31, 1, 23,1, 6, 1};
     unsigned step_imag[8] = {2, 5, 3, 6, 4, 8, 11, 7};
-    for (int i = 0 ; i != 65535; ++i) {
+    for (int i = 0 ; i != 65536; ++i) {
         ctx.flip_input_clocks();
         ctx.flip_input_clocks();
-
-        for (int j = 0; j != 8; ++j) {
-            std::cout << ctx.get_by_name(std::format("x[{}].real", j)) << " "
-                      << ctx.get_by_name(std::format("x[{}].imag", j))
-                      << std::endl;
-        }
 
         for (int j = 0; j != 8; ++j) {
             auto real_name = std::format("x[{}].real", j);

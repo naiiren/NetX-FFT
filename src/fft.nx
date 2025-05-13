@@ -15,10 +15,10 @@ interface basig : [clk, rstn, en] {
 component reg : [clk, rstn, input] -> [output] {
   bundle base of basig;
   auto output <> REG(isPosEdge = true, isHighRst = false) <> {
-    clk = clk,
-    rst = rstn,
-    rst_in = CAST <> 0,
-    input = input
+    clk : clk,
+    rst : rstn,
+    rst_in : CAST <> 0,
+    input : input
   };
 }
 
@@ -114,14 +114,14 @@ component fft8 : [base, x] -> [valid, y] {
       let pindex = pindex_list[m][k];
       let findex = findex_list[m][k];
       let qindex = (1 << m) + pindex;
-      { valid = en_connect[(m + 1) * 4 + k], 
-        yp = xm[m + 1][pindex],
-        yq = xm[m + 1][qindex]
+      { valid : en_connect[(m + 1) * 4 + k],
+        yp : xm[m + 1][pindex],
+        yq : xm[m + 1][qindex]
       } <> butterfly <> {
-        base = basig <> [base.clk, base.rstn, en_connect[m * 4 + k]],
-        xp = xm[m][pindex],
-        xq = xm[m][qindex],
-        factor = factor[findex]
+        base : basig <> [base.clk, base.rstn, en_connect[m * 4 + k]],
+        xp : xm[m][pindex],
+        xq : xm[m][qindex],
+        factor : factor[findex]
       };
     }
   }
