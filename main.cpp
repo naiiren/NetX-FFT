@@ -1,16 +1,12 @@
-#include <boost/process.hpp>
+#include <format>
 #include <nxsim/circuit_parser.h>
 
 using namespace nxon;
 
 int main() {
     std::string json;
-    boost::process::ipstream out;
-    boost::process::child process("nx compile /home/nairen/workspace/evaluation/netx/fft/_netx.toml --minimal --top fft8",
-                                  boost::process::std_out > out,
-                                  boost::process::std_err > boost::process::null);
-    std::getline(out, json);
-    process.wait();
+    std::getline(std::cin, json);
+    std::cout << json << std::endl;
     auto ctx = parse_circuit(nlohmann::json::parse(json));
 
     ctx.circuit.update(1, {1, 0});
