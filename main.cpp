@@ -4,10 +4,15 @@
 using namespace nxon;
 
 int main() {
+    std::ios_base::sync_with_stdio(false);
+    std::cin.tie(NULL);
+
     std::string json;
     std::getline(std::cin, json);
     std::cout << json << std::endl;
     auto ctx = parse_circuit(nlohmann::json::parse(json));
+
+    auto current_time = std::chrono::system_clock::now();
 
     ctx.circuit.update(1, {1, 0});
     ctx.flip_input_clocks();
@@ -33,8 +38,9 @@ int main() {
         ctx.flip_input_clocks();
 
         for (int j = 0; j != 8; ++j) {
-            auto real_name = std::format("x[{}].real", j);
-            auto imag_name = std::format("x[{}].imag", j);
+            char real_name[16], imag_name[16];
+            std::snprintf(real_name, sizeof(real_name), "x[%d].real", j);
+            std::snprintf(imag_name, sizeof(imag_name), "x[%d].imag", j);
 
             auto real = ctx.get_by_name(real_name);
             auto imag = ctx.get_by_name(imag_name);
@@ -52,11 +58,16 @@ int main() {
             }
         }
         for (int j = 0; j != 8; ++j) {
-            std::cout << ctx.get_by_name(std::format("y[{}].real", j)) << " "
-                      << ctx.get_by_name(std::format("y[{}].imag", j))
-                      << std::endl;
+            char real_name[16], imag_name[16];
+            std::snprintf(real_name, sizeof(real_name), "y[%d].real", j);
+            std::snprintf(imag_name, sizeof(imag_name), "y[%d].imag", j);
+            std::cout << ctx.get_by_name(real_name) << " " << ctx.get_by_name(imag_name) << std::endl;
         }
         std::cout << std::endl;
     }
+
+    auto end_time = std::chrono::system_clock::now();
+    std::chrono::duration<double> elapsed_seconds = end_time - current_time;
+    std::cout << "Elapsed time: " << elapsed_seconds.count() << "s\n";
     return 0;
 }
