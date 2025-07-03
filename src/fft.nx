@@ -14,10 +14,9 @@ interface basig : [clk, rstn, en] {
 
 component reg : [clk, rstn, input] -> [output] {
   bundle base of basig;
-  auto output <> REG(isPosEdge = true, isHighRst = false) <> {
+  auto output <> REG(pos_edge = true, high_rst = false, rst_value = 0) <> {
     clk : clk,
     rst : rstn,
-    rst_in : CAST <> 0,
     input : input
   };
 }
