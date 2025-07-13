@@ -9,7 +9,7 @@ struct reg_rule final : impl::rule_impl {
     sink_t out;
 
     reg_rule(nxon::clock_t clk, source_t rst, source_t in, sink_t out)
-        : rule_impl(clk.dependencies() + rst.dependencies() + in.dependencies(), out.outcomes()),
+        : rule_impl(clk.dependencies(), clk.dependencies() + rst.dependencies() + in.dependencies(), out.outcomes()),
           clk(std::move(clk)), rst(std::move(rst)), in(std::move(in)), out(std::move(out)) {}
 
     impl::indirect_id_set perform(value_storage &values) const override {
