@@ -1,4 +1,8 @@
+#include <print>
 #include <format>
+
+#define SIZED_MPINT_BACKEND boost::multiprecision::uint128_t
+#include <nxsim/circuit.h>
 #include <nxsim/circuit_parser.h>
 
 using namespace nxon;
@@ -40,9 +44,6 @@ struct reg_rule final : impl::rule_impl {
 };
 
 int main() {
-    std::ios_base::sync_with_stdio(false);
-    std::cin.tie(nullptr);
-
     std::string json;
     std::getline(std::cin, json);
     auto ctx = parse_circuit(nlohmann::json::parse(json), {
@@ -98,13 +99,14 @@ int main() {
             char real_name[16], imag_name[16];
             std::snprintf(real_name, sizeof(real_name), "y[%d].real", j);
             std::snprintf(imag_name, sizeof(imag_name), "y[%d].imag", j);
-            std::cout << ctx.get_by_name(real_name) << " " << ctx.get_by_name(imag_name) << std::endl;
+
+            std::print("{}\t{}\n", ctx.get_by_name(real_name), ctx.get_by_name(imag_name));
         }
-        std::cout << std::endl;
+        std::print("\n");
     }
 
     const auto end_time = std::chrono::system_clock::now();
     const std::chrono::duration<double> elapsed_seconds = end_time - current_time;
-    std::cout << "Elapsed time: " << elapsed_seconds.count() << "s\n";
+    std::print("Elapsed time: {}s\n", elapsed_seconds.count());
     return 0;
 }
