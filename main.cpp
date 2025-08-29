@@ -1,7 +1,9 @@
 #include <print>
 #include <format>
+#include <iostream>
+
 #define SIZED_MPINT_BACKEND uint64_t
-#include <nxsim/circuit/circuit_parser.h>
+#include <nxsim/simulation.h>
 
 using namespace nxon;
 
@@ -41,12 +43,16 @@ struct reg_rule final : impl::rule_impl {
     }
 };
 
-int main() {
+int main(int argc, char *argv[]) {
+    bool enable_native = true;
+    enable_native = !(argc > 1 && std::string(argv[1]) == "--no-native");
+
     std::string json;
     std::getline(std::cin, json);
-    auto ctx = parse_circuit(nlohmann::json::parse(json), {
-        {"reg", std::function(reg_rule::parse)}
-    });
+
+    auto ctx = enable_native 
+        ? parse_circuit(json, {{"reg", std::function(reg_rule::parse)}}) 
+        : parse_circuit(json);
 
     const auto current_time = std::chrono::system_clock::now();
 
