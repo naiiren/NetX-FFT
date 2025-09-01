@@ -50,16 +50,19 @@ int main(int argc, char *argv[]) {
     std::string json;
     std::getline(std::cin, json);
 
-    auto ctx = enable_native 
-        ? parse_circuit(json, {{"reg", std::function(reg_rule::parse)}}) 
-        : parse_circuit(json);
+    parse_context ctx;
+    if (enable_native) {
+        parse_circuit(ctx, json, {{"reg", std::function(reg_rule::parse)}});
+    } else {
+        parse_circuit(ctx, json);
+    }
 
     const auto current_time = std::chrono::system_clock::now();
 
-    ctx.circuit.update(1, {1, 0});
+    ctx.update_by_name("base.rstn", {1, 0});
     ctx.flip_input_clocks();
     ctx.flip_input_clocks();
-    ctx.circuit.update(1, {1, 1});
+    ctx.update_by_name("base.rstn", {1, 1});
     ctx.update_by_name("x[0].real", {24, 10});
     ctx.update_by_name("x[1].real", {24, 20});
     ctx.update_by_name("x[2].real", {24, 30});
@@ -71,7 +74,7 @@ int main(int argc, char *argv[]) {
 
     ctx.flip_input_clocks();
     ctx.flip_input_clocks();
-    ctx.circuit.update(2, {1, 1});
+    ctx.update_by_name("base.en", {1, 1});
 
     for (int i = 0 ; i != 65536; ++i) {
         ctx.flip_input_clocks();
