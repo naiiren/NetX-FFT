@@ -1,8 +1,7 @@
 #include <print>
 #include <format>
 #include <iostream>
-
-#define SIZED_MPINT_BACKEND uint64_t
+#define NX_BACKEND uint64_t
 #include <nxsim/simulation.h>
 
 using namespace nxon;
@@ -49,65 +48,64 @@ int main(int argc, char *argv[]) {
 
     std::string json;
     std::getline(std::cin, json);
-
-    parse_context ctx;
+    parallel_parse_context<semantic_partitioner<>> ctx;
     if (enable_native) {
         parse_circuit(ctx, json, {{"reg", std::function(reg_rule::parse)}});
     } else {
         parse_circuit(ctx, json);
     }
+    ctx.init_partition();
 
     const auto current_time = std::chrono::system_clock::now();
 
-    ctx.update_by_name("base.rstn", {1, 0});
-    ctx.flip_input_clocks();
-    ctx.flip_input_clocks();
-    ctx.update_by_name("base.rstn", {1, 1});
-    ctx.update_by_name("x[0].real", {24, 10});
-    ctx.update_by_name("x[1].real", {24, 20});
-    ctx.update_by_name("x[2].real", {24, 30});
-    ctx.update_by_name("x[3].real", {24, 40});
-    ctx.update_by_name("x[4].real", {24, 10});
-    ctx.update_by_name("x[5].real", {24, 20});
-    ctx.update_by_name("x[6].real", {24, 30});
-    ctx.update_by_name("x[7].real", {24, 40});
+    ctx.set("base.rstn", {1, 0});
+    ctx.advance_input_clocks();
+    ctx.stashed_set("base.rstn", {1, 1});
+    ctx.stashed_set("x[0].real", {24, 10});
+    ctx.stashed_set("x[1].real", {24, 20});
+    ctx.stashed_set("x[2].real", {24, 30});
+    ctx.stashed_set("x[3].real", {24, 40});
+    ctx.stashed_set("x[4].real", {24, 10});
+    ctx.stashed_set("x[5].real", {24, 20});
+    ctx.stashed_set("x[6].real", {24, 30});
+    ctx.stashed_set("x[7].real", {24, 40});
+    ctx.apply_stash();
 
-    ctx.flip_input_clocks();
-    ctx.flip_input_clocks();
-    ctx.update_by_name("base.en", {1, 1});
+    ctx.advance_input_clocks();
+    ctx.set("base.en", {1, 1});
 
     for (int i = 0 ; i != 65536; ++i) {
-        ctx.flip_input_clocks();
-        ctx.flip_input_clocks();
+        ctx.advance_input_clocks();
 
         for (int j = 0; j != 8; ++j) {
             char real_name[16], imag_name[16];
             std::snprintf(real_name, sizeof(real_name), "x[%d].real", j);
             std::snprintf(imag_name, sizeof(imag_name), "x[%d].imag", j);
 
-            auto real = ctx.get_by_name(real_name);
-            auto imag = ctx.get_by_name(imag_name);
+            auto real = ctx.get(real_name);
+            auto imag = ctx.get(imag_name);
 
             if (real > value_t{24, 0x3FFFFF}) {
-                ctx.update_by_name(real_name, {24, 0});
+                ctx.stashed_set(real_name, {24, 0});
             } else {
                 const unsigned step_real[8] = {1, 1, 31, 1, 23,1, 6, 1};
-                ctx.update_by_name(real_name, real + value_t{24, step_real[j]});
+                ctx.stashed_set(real_name, real + value_t{24, step_real[j]});
             }
 
             if (imag > value_t{24, 0x3FFFFF}) {
-                ctx.update_by_name(imag_name, {24, 0});
+                ctx.stashed_set(imag_name, {24, 0});
             } else {
                 const unsigned step_imag[8] = {2, 5, 3, 6, 4, 8, 11, 7};
-                ctx.update_by_name(imag_name, imag + value_t{24, step_imag[j]});
+                ctx.stashed_set(imag_name, imag + value_t{24, step_imag[j]});
             }
         }
+        ctx.apply_stash();
         for (int j = 0; j != 8; ++j) {
             char real_name[16], imag_name[16];
             std::snprintf(real_name, sizeof(real_name), "y[%d].real", j);
             std::snprintf(imag_name, sizeof(imag_name), "y[%d].imag", j);
 
-            std::print("{}\t{}\n", ctx.get_by_name(real_name), ctx.get_by_name(imag_name));
+            std::print("{}\t{}\n", ctx.get(real_name), ctx.get(imag_name));
         }
         std::print("\n");
     }
