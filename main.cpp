@@ -1,6 +1,7 @@
 #include <print>
 #include <format>
 #include <iostream>
+#include <functional>
 #define NX_BACKEND uint64_t
 #include <nxsim/simulation.h>
 
@@ -48,13 +49,12 @@ int main(int argc, char *argv[]) {
 
     std::string json;
     std::getline(std::cin, json);
-    parallel_parse_context<semantic_partitioner<>> ctx;
+    parse_context ctx;
     if (enable_native) {
         parse_circuit(ctx, json, {{"reg", std::function(reg_rule::parse)}});
     } else {
         parse_circuit(ctx, json);
     }
-    ctx.init_partition();
 
     const auto current_time = std::chrono::system_clock::now();
 
