@@ -12,22 +12,23 @@ struct reg_rule final : impl::rule_impl {
     source_t rst, in;
     sink_t out;
 
-    reg_rule(nxon::clock_t clk, source_t rst, source_t in, sink_t out)
-        : rule_impl(clk.dependencies(), clk.dependencies() + rst.dependencies() + in.dependencies(), out.outcomes()),
-          clk(std::move(clk)), rst(std::move(rst)), in(std::move(in)), out(std::move(out)) {}
+    reg_rule(const nxon::clock_t &clk, const source_t &rst,
+             const source_t &in, const sink_t &out)
+        : rule_impl(
+            clk.dependencies(),
+            clk.dependencies() + rst.dependencies() + in.dependencies(),
+            out.outcomes()
+        ), clk(clk), rst(rst), in(in), out(out) {}
 
-    impl::indirect_id_set perform(value_storage &values) const override {
-        static id_set EMPTY_ID_SET;
-        if (const auto rst_v = rst.get(values);
-            static_cast<bool>(*rst_v)) [[likely]] {
-            if (auto in_v = in.get(values); clk.triggered(values) && out.check(values, *in_v)) {
-                values.delay([value = in_v.release(), out = out](auto &cur_values) {
-                    out.put(cur_values, std::move(value));
-                });
-                return impl::indirect_id_set(out.outcomes());
+    id_set perform(value_storage &values) const override {
+        if (const auto rst_v = rst.get(values); static_cast<bool>(rst_v)) [[likely]] {
+            auto in_v = in.get(values);
+            if (clk.triggered(values) && out.check(values, in_v)) {
+                out.delay_put(values, std::move(in_v));
+                return out.outcomes();
             }
         }
-        return impl::indirect_id_set(EMPTY_ID_SET);
+        return {};
     }
 
     static rule_t parse(const parse_context &ctx, const nlohmann::json &json) {
@@ -60,16 +61,15 @@ int main(int argc, char *argv[]) {
 
     ctx.set("base.rstn", {1, 0});
     ctx.advance_input_clocks();
-    ctx.stashed_set("base.rstn", {1, 1});
-    ctx.stashed_set("x[0].real", {24, 10});
-    ctx.stashed_set("x[1].real", {24, 20});
-    ctx.stashed_set("x[2].real", {24, 30});
-    ctx.stashed_set("x[3].real", {24, 40});
-    ctx.stashed_set("x[4].real", {24, 10});
-    ctx.stashed_set("x[5].real", {24, 20});
-    ctx.stashed_set("x[6].real", {24, 30});
-    ctx.stashed_set("x[7].real", {24, 40});
-    ctx.apply_stash();
+    ctx.set("base.rstn", {1, 1});
+    ctx.set("x[0].real", {24, 10});
+    ctx.set("x[1].real", {24, 20});
+    ctx.set("x[2].real", {24, 30});
+    ctx.set("x[3].real", {24, 40});
+    ctx.set("x[4].real", {24, 10});
+    ctx.set("x[5].real", {24, 20});
+    ctx.set("x[6].real", {24, 30});
+    ctx.set("x[7].real", {24, 40});
 
     ctx.advance_input_clocks();
     ctx.set("base.en", {1, 1});
@@ -86,17 +86,17 @@ int main(int argc, char *argv[]) {
             auto imag = ctx.get(imag_name);
 
             if (real > value_t{24, 0x3FFFFF}) {
-                ctx.stashed_set(real_name, {24, 0});
+                ctx.set(real_name, {24, 0});
             } else {
                 const unsigned step_real[8] = {1, 1, 31, 1, 23,1, 6, 1};
-                ctx.stashed_set(real_name, real + value_t{24, step_real[j]});
+                ctx.set(real_name, real + value_t{24, step_real[j]});
             }
 
             if (imag > value_t{24, 0x3FFFFF}) {
-                ctx.stashed_set(imag_name, {24, 0});
+                ctx.set(imag_name, {24, 0});
             } else {
                 const unsigned step_imag[8] = {2, 5, 3, 6, 4, 8, 11, 7};
-                ctx.stashed_set(imag_name, imag + value_t{24, step_imag[j]});
+                ctx.set(imag_name, imag + value_t{24, step_imag[j]});
             }
         }
         ctx.apply_stash();
