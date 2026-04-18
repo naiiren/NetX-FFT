@@ -32,15 +32,13 @@ struct reg_rule final : impl::rule_impl {
     }
 
     static rule_t parse(const parse_context &ctx, const nlohmann::json &json) {
-        const auto &input = json["input"];
-        const auto &output = json["output"];
+        return make_rule<reg_rule>(ctx, json,
+            pos_clock_in<0>, source_in<1>, source_in<2>, sink_out<0>
+        );
+    }
 
-        return rule_t{new reg_rule(
-            parse_clock(input.at(0), true),
-            parse_source(input.at(1), ctx),
-            parse_source(input.at(2), ctx),
-            parse_sink(output.at(0), ctx)
-        )};
+    [[nodiscard]] impl::rule_phase phase() const override {
+        return impl::rule_phase::sequential;
     }
 };
 
